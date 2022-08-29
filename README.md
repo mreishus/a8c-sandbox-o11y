@@ -14,4 +14,6 @@ cd ~/public_html
 patch -p1 < ~/debug-perf/hook11.diff
 ```
 
-Be careful not to commit changes to `wp-includes/class-wp-hook.php`! You can reverse them with `git checkout HEAD wp-includes/class-wp-hook.php`.
+Be careful not to commit changes to `wp-includes/class-wp-hook.php`! You can
+reverse them with `git checkout HEAD wp-includes/class-wp-hook.php`.
+
