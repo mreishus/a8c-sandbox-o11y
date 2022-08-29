@@ -1,0 +1,107 @@
+diff --git a/wp-includes/class-wp-hook.php b/wp-includes/class-wp-hook.php
+index 018db1c96..932361207 100644
+--- a/wp-includes/class-wp-hook.php
++++ b/wp-includes/class-wp-hook.php
+@@ -15,6 +15,10 @@
+  * @see Iterator
+  * @see ArrayAccess
+  */
++
++$GLOBALS['sandbox_hook_count'] = array();
++$GLOBALS['sandbox_hook_time']  = array();
++
+ final class WP_Hook implements Iterator, ArrayAccess {
+ 
+ 	/**
+@@ -41,6 +45,8 @@ final class WP_Hook implements Iterator, ArrayAccess {
+ 	 */
+ 	private $current_priority = array();
+ 
++	public $hook_name = '';
++
+ 	/**
+ 	 * Number of levels this hook can be recursively called.
+ 	 *
+@@ -71,6 +77,7 @@ final class WP_Hook implements Iterator, ArrayAccess {
+ 	 * @param int      $accepted_args The number of arguments the function accepts.
+ 	 */
+ 	public function add_filter( $hook_name, $callback, $priority, $accepted_args ) {
++		$this->hook_name = $hook_name;
+ 		$idx = _wp_filter_build_unique_id( $hook_name, $callback, $priority );
+ 
+ 		$priority_existed = isset( $this->callbacks[ $priority ] );
+@@ -300,6 +307,10 @@ final class WP_Hook implements Iterator, ArrayAccess {
+ 					$args[0] = $value;
+ 				}
+ 
++				if ( true ) {
++					$start = microtime( true );
++				}
++
+ 				// Avoid the array_slice() if possible.
+ 				if ( 0 == $the_['accepted_args'] ) {
+ 					$value = call_user_func( $the_['function'] );
+@@ -308,6 +319,63 @@ final class WP_Hook implements Iterator, ArrayAccess {
+ 				} else {
+ 					$value = call_user_func_array( $the_['function'], array_slice( $args, 0, (int) $the_['accepted_args'] ) );
+ 				}
++
++				if ( true ) {
++					$end = microtime( true );
++					$elap = ( $end - $start ) * 1000;
++
++					// Figure out name of the hooked function that ran
++					$f = '';
++					if ( is_string( $the_['function'] ) ) {
++						$f = $the_['function'];
++					} elseif ( is_array( $the_['function'] ) ) {
++						$parts = [];
++						foreach ( $the_['function'] as $part ) {
++							if ( is_object( $part ) ) {
++								$parts[] = get_class( $part );
++							} else {
++								$parts[] = $part;
++							}
++						}
++						$f = implode( '->', $parts );
++					} else {
++						try {
++							$func = new ReflectionFunction( $the_['function'] );
++							$f = $func->getFileName() . ' -> ' . $func->getStartLine() . ' -> ' . $func->getName();
++						} catch ( Error $e ) {
++							$class = get_class( $the_['function'] );
++							$f = $class;
++						}
++					}
++
++					// Keep global tally of each hooked function
++					$sf = strtolower(trim(preg_replace('/[^A-Za-z0-9-> ]+/', '-', $f)));
++					$sf = $this->hook_name . ' => ' . $sf;
++					if ( ! empty( $GLOBALS['sandbox_hook_count'][$sf] ) ) {
++						$GLOBALS['sandbox_hook_count'][$sf] += 1;
++					} else {
++						$GLOBALS['sandbox_hook_count'][$sf] = 1;
++					}
++					if ( ! empty( $GLOBALS['sandbox_hook_time'][$sf] ) ) {
++						$GLOBALS['sandbox_hook_time'][$sf] += $elap;
++					} else {
++						$GLOBALS['sandbox_hook_time'][$sf] = $elap;
++					}
++
++					// Log, sometimes
++					if ( $elap > 50 ) {
++						$elap = round( $elap );
++						if ( function_exists( 'sandbox_error_log' ) ) {
++							sandbox_error_log( "    hook: {$elap}ms | {$this->hook_name} -> $f()" );
++						} else {
++							$link = "$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
++							if ( strpos( $link, '?' ) !== false ) {
++									$link = substr( $link, 0, strpos( $link, '?' ) );
++							}
++							error_log( "{$elap}ms | {$this->hook_name} => $f() | $link" );
++						}
++					}
++				}
+ 			}
+ 		} while ( false !== next( $this->iterations[ $nesting_level ] ) );
+ 
