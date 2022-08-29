@@ -129,7 +129,7 @@ function sandbox_level_number_to_config( $level ) {
 				'start_request'                   => true,
 				'start_request_shorten_url'       => 100,
 				'end_request'                     => false,
-				'suppress_notifications_endpoint' => false,
+				'suppress_notifications_endpoint' => true,
 				'hooked_function_summary'         => false,
 				'hook_summary'                    => false,
 				'hook_threshold'                  => 100,
@@ -139,7 +139,7 @@ function sandbox_level_number_to_config( $level ) {
 				'start_request'                   => true,
 				'start_request_shorten_url'       => 100,
 				'end_request'                     => true,
-				'suppress_notifications_endpoint' => false,
+				'suppress_notifications_endpoint' => true,
 				'hooked_function_summary'         => false,
 				'hook_summary'                    => false,
 				'hook_threshold'                  => 100,
@@ -150,7 +150,7 @@ function sandbox_level_number_to_config( $level ) {
 				'start_request'                   => true,
 				'start_request_shorten_url'       => 100,
 				'end_request'                     => true,
-				'suppress_notifications_endpoint' => false,
+				'suppress_notifications_endpoint' => true,
 				'hooked_function_summary'         => true,
 				'hook_summary'                    => false,
 				'hook_threshold'                  => 100,
@@ -183,6 +183,7 @@ function sandbox_log_request( $level = 1 ) {
 		if ( rand( 0, 99 ) === 42 ) {
 			sandbox_error_log( 'Reminder: 99% of requests to the notifications endpoint are being suppressed' );
 		} else {
+			$GLOBALS['sandbox_req_hook_logging_suppressed'] = true;
 			return;
 		}
 	}

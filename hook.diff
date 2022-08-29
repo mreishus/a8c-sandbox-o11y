@@ -1,5 +1,5 @@
 diff --git a/wp-includes/class-wp-hook.php b/wp-includes/class-wp-hook.php
-index 018db1c96..932361207 100644
+index 018db1c96..0e8201f6a 100644
 --- a/wp-includes/class-wp-hook.php
 +++ b/wp-includes/class-wp-hook.php
 @@ -15,6 +15,10 @@
@@ -89,7 +89,7 @@ index 018db1c96..932361207 100644
 +					}
 +
 +					// Log, sometimes
-+					if ( $elap > 50 ) {
++					if ( $elap > 50 && empty( $GLOBALS['sandbox_req_hook_logging_suppressed'] ) ) {
 +						$elap = round( $elap );
 +						if ( function_exists( 'sandbox_error_log' ) ) {
 +							sandbox_error_log( "    hook: {$elap}ms | {$this->hook_name} -> $f()" );
