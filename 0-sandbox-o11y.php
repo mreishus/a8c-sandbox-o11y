@@ -4,11 +4,6 @@
  * 0-sandbox-o11y.php
  * ===================
  *
- * Version: 0.1.2 released 2022-08-29
- *
- * Changelog: 0.1.1: Filtered out 99% of requests to notifications endpoint, hardcoded.
- * Changelog: 0.1.2: Added hooked_function_summary. Made notifications suppression configurable. Requires new hook patch.
- *
  * Provide more visibility into what your sandbox is doing
  * by adding logging messages to 0-sandbox.php.
  *
@@ -35,13 +30,24 @@
  *
  * A function, sel() [stands for sandbox_error_log()] is provided to prefix your error log
  * messages with an indication of which process they're running on.
+ *
+ * ------ Version and Changelog ------
+ *
+ * Version: 0.2.0 released 2022-09-08
+ *
+ * Changelog: 0.1.1: Filtered out 99% of requests to notifications endpoint, hardcoded.
+ * Changelog: 0.1.2: Added hooked_function_summary. Made notifications suppression configurable. Requires new hook patch.
+ * Changelog: 0.2.0: Added endpoint file guesser. Guesses the file that serves the endpoint that made the request!
+ *    Example:
+ *    [active-promo e4a5] --> public-api.wordpress.com/rest/v1.1/me/active-promotions
+ *    [active-promo e4a5] <--   668ms (cache= 73ms) [ 34 sql=   13ms]
+ *    [active-promo e4a5]   f public.api/rest/wpcom-json-endpoints/class.wpcom-json-api-me-active-promotions-endpoint.php
+ *    After the "<--" (End request) line, an "  f" (File) line is added, showing which file served the request.
+ *
  */
 
 /* Ideas for future improvement:
  *  - Query summary from WPCOM_Debug_Bar_Query_Summary in wpcom-debug-bar-panels.php
- *  - Automatic API file finder
- *     Answer the question "I just hit the /wp/v2/sites/179276076/themes?status=active endpoint, which file
- *     has the code for this?"
  */
 
 // Get the current URL. Optionally hide query: "public-api.wordpress.com/rest/v1.1/notifications/"
@@ -168,6 +174,73 @@ function sandbox_level_number_to_config( $level ) {
 	}
 }
 
+// Look through the stacktrace and see if we're in the middle of a v1 or v2wpcom
+// callback. If so, try to guess which file is serving the endpoint, and store in
+// $GLOBALS['sandbox_endpoint_file_guess'] if found.
+function sandbox_guess_file_serving_endpoint( $in ) {
+	if ( ! empty( $GLOBALS['sandbox_guess_file_serving_endpoint_ran'] ) ) {
+		return $in;
+	}
+
+	$stack       = debug_backtrace();
+	$stack_count = count( $stack );
+	$last_file   = '';
+
+	// Usually, the file being served is what's just before these two files in the stack. (Or is it after?)
+	$just_before_v1       = 'public.api/rest/class.json-api.php';
+	$just_before_v2_wpcom = 'rest-api/class-wp-rest-server.php';
+
+	for ( $i = 1; $i < $stack_count; $i++ ) {
+		$file = $stack[ $i ]['file'];
+		// False alarms; Finding these in the stacktrace mean we're outside the API callback context
+		if (
+			str_contains( $file, 'mu-plugins/email-verification.php' )
+			|| str_contains( $file, 'entralized/centralize.php' )
+		) {
+			// Early return, we need to run through some more stack traces.
+			return $in;
+		}
+
+		// Look for a match.
+		if (
+			str_contains( $file, $just_before_v1 )
+			|| str_contains( $file, $just_before_v2_wpcom )
+		) {
+			// Two more false alarms; these files are incorrect detections.
+			if (
+				str_contains( $last_file, 'wp-includes/plugin.php' )
+				|| str_contains( $last_file, 'class.wpcom-json-api.php' )
+			) {
+				// Early return, we need to run through some more stack traces.
+				return $in;
+			}
+
+			$last_file = str_replace( '/home/wpcom/public_html/', '', $last_file );
+
+			$GLOBALS['sandbox_endpoint_file_guess'] = $last_file;
+			break;
+		}
+		$last_file = $file;
+	}
+
+	// We either found it or we didn't, but let's try to stop our hook.
+	$GLOBALS['sandbox_guess_file_serving_endpoint_ran'] = true;
+	remove_action( 'switch_blog', 'sandbox_guess_file_serving_endpoint' );
+	remove_action( 'the_content', 'sandbox_guess_file_serving_endpoint' );
+	remove_action( 'query', 'sandbox_guess_file_serving_endpoint' );
+	return $in;
+}
+
+function sandbox_add_hooks_for_guess_file_serving_endpoint() {
+	// Hook on a bunch of generic stuff.
+	// There's no clear hook to call, we just need some sort of
+	// activity that the API callback will do.
+	// The hook will unregister itself pretty quickly.
+	add_action( 'switch_blog', 'sandbox_guess_file_serving_endpoint' );
+	add_action( 'the_content', 'sandbox_guess_file_serving_endpoint' );
+	add_action( 'query', 'sandbox_guess_file_serving_endpoint' );
+}
+
 // Log a "-->" message right now, and queue up a "<--" message to be logged at shutdown.
 // The shutdown query includes elapsed time, number of SQL queries, and time taken by those.
 function sandbox_log_request( $level = 1 ) {
@@ -191,11 +264,15 @@ function sandbox_log_request( $level = 1 ) {
 	if ( $c['start_request'] ) {
 		if ( $c['start_request_shorten_url'] ) {
 			$len = $c['start_request_shorten_url'];
-			$shortlink = strlen( $link ) > $len ? substr( $link, 0, ( $len - 3 ) ) . "..." : $link;
+			$shortlink = strlen( $link ) > $len ? substr( $link, 0, ( $len - 3 ) ) . '...' : $link;
 			sandbox_error_log( "--> $shortlink" );
 		} else {
 			sandbox_error_log( "--> $link" );
 		}
+	}
+
+	if ( $c['end_request'] ) {
+		sandbox_add_hooks_for_guess_file_serving_endpoint();
 	}
 
 	if ( $c['hook_summary'] ) {
@@ -241,6 +318,10 @@ function sandbox_log_request( $level = 1 ) {
 				}
 				if ( $c['end_request'] ) {
 					sandbox_error_log( "<-- {$elapsed_str}{$cache_str}{$sql_str}", $prefix_space_replace );
+					if ( ! empty( $GLOBALS['sandbox_endpoint_file_guess'] ) ) {
+						$file = $GLOBALS['sandbox_endpoint_file_guess'];
+						sandbox_error_log( "  f $file" );
+					}
 				}
 
 				// Optional: Hook recap
