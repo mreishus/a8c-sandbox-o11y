@@ -196,6 +196,7 @@ function sandbox_guess_file_serving_endpoint( $in ) {
 		if (
 			str_contains( $file, 'mu-plugins/email-verification.php' )
 			|| str_contains( $file, 'entralized/centralize.php' )
+			|| str_contains( $file, 'class-wpcom-initializer.php' )
 		) {
 			// Early return, we need to run through some more stack traces.
 			return $in;
