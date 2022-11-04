@@ -187,9 +187,16 @@ function sandbox_guess_file_serving_endpoint( $in ) {
 	$last_file   = '';
 
 	// Usually, the file being served is what's just before these two files in the stack. (Or is it after?)
-	$just_before_v1       = 'public.api/rest/class.json-api.php';
+	$just_before_v1       = 'jetpack-plugin/production/class.json-api.php';
 	$just_before_v2_wpcom = 'rest-api/class-wp-rest-server.php';
 
+	// Helper for debugging (Remember to remove the give up code at the end)
+	/*
+	for ( $j = 1; $j < $stack_count; $j++ ) {
+		$infile = $stack[$j]['file'];
+		sel("$j $infile");
+	}
+	*/
 	for ( $i = 1; $i < $stack_count; $i++ ) {
 		$file = $stack[ $i ]['file'];
 		// False alarms; Finding these in the stacktrace mean we're outside the API callback context
@@ -210,7 +217,9 @@ function sandbox_guess_file_serving_endpoint( $in ) {
 			// Two more false alarms; these files are incorrect detections.
 			if (
 				str_contains( $last_file, 'wp-includes/plugin.php' )
+				|| str_contains( $last_file, 'wp-includes/ms-blogs.php' )
 				|| str_contains( $last_file, 'class.wpcom-json-api.php' )
+				|| str_contains( $last_file, 'class.json-api.php' )
 			) {
 				// Early return, we need to run through some more stack traces.
 				return $in;
