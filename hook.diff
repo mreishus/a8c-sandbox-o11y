@@ -1,5 +1,5 @@
 diff --git a/wp-includes/class-wp-hook.php b/wp-includes/class-wp-hook.php
-index 4796503dcc..2b10207914 100644
+index 4796503dcc..4693745a90 100644
 --- a/wp-includes/class-wp-hook.php
 +++ b/wp-includes/class-wp-hook.php
 @@ -7,6 +7,9 @@
@@ -74,7 +74,7 @@ index 4796503dcc..2b10207914 100644
 +					}
 +
 +					// Keep global tally of each hooked function
-+					$sf = strtolower(trim(preg_replace('/[^A-Za-z0-9-> ]+/', '-', $f)));
++					$sf = trim(preg_replace('/[^A-Za-z0-9-> _\\\\\/\.]+/', '-', $f));
 +					$sf = $this->hook_name . ' => ' . $sf;
 +					if ( ! empty( $GLOBALS['sandbox_hook_count'][$sf] ) ) {
 +						$GLOBALS['sandbox_hook_count'][$sf] += 1;
