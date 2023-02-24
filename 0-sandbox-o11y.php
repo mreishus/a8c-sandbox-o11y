@@ -327,7 +327,10 @@ function sandbox_log_request( $level = 1 ) {
 					$prefix_space_replace = '.';
 				}
 				if ( $c['end_request'] ) {
-					sandbox_error_log( "<-- {$elapsed_str}{$cache_str}{$sql_str}", $prefix_space_replace );
+					$cache_stats = json_encode( $wp_object_cache->stats );
+					$z = $GLOBALS['time_used'];
+					sandbox_error_log( "<-- {$elapsed_str}{$cache_str}{$sql_str} $cache_stats $z", $prefix_space_replace );
+					/* sel( json_encode( $wp_object_cache->group_ops ) ); */
 					if ( ! empty( $GLOBALS['sandbox_endpoint_file_guess'] ) ) {
 						$file = $GLOBALS['sandbox_endpoint_file_guess'];
 						sandbox_error_log( "  f $file" );
