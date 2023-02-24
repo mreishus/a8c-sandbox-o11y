@@ -338,7 +338,8 @@ function sandbox_log_request( $level = 1 ) {
 				}
 
 				// Optional: Hook recap
-				if ( $c['hook_summary'] ) {
+				$long = $elapsed > 2500;
+				if ( $long && $c['hook_summary'] ) {
 					sandbox_error_log( '    === slowest hooks ===' );
 					foreach ( $actions_and_filters_bench->get_results() as $filter => $filter_data ) {
 						$filter_time_per = floatval( $filter_data['average_per_call'] );
@@ -356,7 +357,8 @@ function sandbox_log_request( $level = 1 ) {
 					}
 				}
 
-				if ( $c['hooked_function_summary'] && ! empty( $GLOBALS['sandbox_hook_time'] ) && ! empty( $GLOBALS['sandbox_hook_count'] ) ) {
+				$long = $elapsed > 2500;
+				if ( $long && $c['hooked_function_summary'] && ! empty( $GLOBALS['sandbox_hook_time'] ) && ! empty( $GLOBALS['sandbox_hook_count'] ) ) {
 					$GLOBALS['sandbox_hook_time'] = array_map( 'round', $GLOBALS['sandbox_hook_time'] );
 
 					$display_hook = function( $name, $count, $time ) {
