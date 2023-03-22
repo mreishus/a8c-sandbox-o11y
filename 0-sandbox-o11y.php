@@ -33,7 +33,7 @@
  *
  * ------ Version and Changelog ------
  *
- * Version: 0.2.0 released 2022-09-08
+ * Version: 0.3.0 released 2023-03-22
  *
  * Changelog: 0.1.1: Filtered out 99% of requests to notifications endpoint, hardcoded.
  * Changelog: 0.1.2: Added hooked_function_summary. Made notifications suppression configurable. Requires new hook patch.
@@ -43,6 +43,7 @@
  *    [active-promo e4a5] <--   668ms (cache= 73ms) [ 34 sql=   13ms]
  *    [active-promo e4a5]   f public.api/rest/wpcom-json-endpoints/class.wpcom-json-api-me-active-promotions-endpoint.php
  *    After the "<--" (End request) line, an "  f" (File) line is added, showing which file served the request.
+ * Changelog: 0.3.0: Added selt("Message 1") for timings. Do some stuff, then selt("Message 2"), and automatically see the time elasped between the last two selt() messages.
  *
  */
 
@@ -126,6 +127,24 @@ function sandbox_error_log( $message, $prefix_space_replace = false ) {
 
 function sel( $message ) {
 	return sandbox_error_log( $message );
+}
+
+$GLOBALS['sandbox_start_time']     = microtime( true );
+$GLOBALS['sandbox_last_selt_time'] = $GLOBALS['sandbox_start_time'];
+$GLOBALS['sandbox_selt_num']       = 0;
+function selt( $message ) {
+	if ( empty( $message ) ) {
+		$message = 'Mark ' . $GLOBALS['sandbox_selt_num'] . ':';
+		$GLOBALS['sandbox_selt_num'] += 1;
+	}
+	$now  = microtime( true );
+
+	$elap       = round( ( $now - $GLOBALS['sandbox_last_selt_time'] ) * 1000, 2 );
+	$elap_begin = round( ( $now - $GLOBALS['sandbox_start_time'] ) * 1000, 2 );
+
+	sel("$message | $elap | $elap_begin");
+
+	$GLOBALS['sandbox_last_selt_time'] = microtime( true );
 }
 
 function sandbox_level_number_to_config( $level ) {
