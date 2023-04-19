@@ -158,7 +158,6 @@ function sandbox_level_number_to_config( $level ) {
 				'end_request'                     => false,
 				'suppress_notifications_endpoint' => true,
 				'hooked_function_summary'         => false,
-				'hook_summary'                    => false,
 				'hook_threshold'                  => 100,
 			);
 		case 1:
@@ -168,7 +167,6 @@ function sandbox_level_number_to_config( $level ) {
 				'end_request'                     => true,
 				'suppress_notifications_endpoint' => true,
 				'hooked_function_summary'         => false,
-				'hook_summary'                    => false,
 				'hook_threshold'                  => 100,
 			);
 		case 2:
@@ -179,7 +177,6 @@ function sandbox_level_number_to_config( $level ) {
 				'end_request'                     => true,
 				'suppress_notifications_endpoint' => true,
 				'hooked_function_summary'         => true,
-				'hook_summary'                    => false,
 				'hook_threshold'                  => 100,
 			);
 		case 3:
@@ -189,7 +186,6 @@ function sandbox_level_number_to_config( $level ) {
 				'end_request'                     => true,
 				'suppress_notifications_endpoint' => false,
 				'hooked_function_summary'         => true,
-				'hook_summary'                    => true,
 				'hook_threshold'                  => 100,
 			);
 	}
@@ -306,13 +302,8 @@ function sandbox_log_request( $level = 1 ) {
 		sandbox_add_hooks_for_guess_file_serving_endpoint();
 	}
 
-	if ( $c['hook_summary'] ) {
-		require_lib( 'benchmarking' );
-		$actions_and_filters_bench = new WPCOM_Bench_Filters();
-	}
-
 	$start = microtime( true );
-	if ( $c['end_request'] || $c['hook_summary'] ) {
+	if ( $c['end_request'] ) {
 		register_shutdown_function(
 			function() use ( $start, $actions_and_filters_bench, $c ) {
 				global $wpdb, $wp_object_cache;
@@ -363,23 +354,6 @@ function sandbox_log_request( $level = 1 ) {
 				// Optional: Hook recap
 				$long = $elapsed > 500;
 				$do_summary = $long;
-				if ( $do_summary && $c['hook_summary'] ) {
-					sandbox_error_log( '    === slowest hooks ===' );
-					foreach ( $actions_and_filters_bench->get_results() as $filter => $filter_data ) {
-						$filter_time_per = floatval( $filter_data['average_per_call'] );
-						$filter_time = floatval( $filter_data['time'] );
-						$filter_count = intval( $filter_data['count'] );
-
-						$filter_str   = str_pad( "$filter", 25);
-						$time_str     = str_pad( "{$filter_time}ms", 7, ' ', STR_PAD_LEFT );
-						$count_str    = str_pad( $filter_count, 3 );
-						$time_per_str = str_pad( "{$filter_time_per}ms", 4, ' ', STR_PAD_LEFT );
-
-						if ( $filter_time > $c['hook_threshold'] ) {
-							sandbox_error_log( "    ⊆ [$filter_str] $time_str. ({$count_str} calls @ {$time_per_str})" );
-						}
-					}
-				}
 
 				/* sel("Took this many measurements: " .  $GLOBALS['measure_count']); */
 				if ( $do_summary && $c['hooked_function_summary'] && ! empty( $GLOBALS['sandbox_hook_time'] ) && ! empty( $GLOBALS['sandbox_hook_count'] ) ) {
