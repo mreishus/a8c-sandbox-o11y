@@ -1,18 +1,46 @@
 diff --git a/wp-includes/class-wp-hook.php b/wp-includes/class-wp-hook.php
-index 4796503dcc..4693745a90 100644
+index 4796503dcc..a34ddf0dff 100644
 --- a/wp-includes/class-wp-hook.php
 +++ b/wp-includes/class-wp-hook.php
-@@ -7,6 +7,9 @@
+@@ -7,6 +7,37 @@
   * @since 4.7.0
   */
  
 +$GLOBALS['sandbox_hook_count'] = array();
 +$GLOBALS['sandbox_hook_time']  = array();
++// On a test site, we moved from 26070 measurements to 5000 measurements after these bans
++$GLOBALS['no_measure_hooks'] = [
++	'wp_cache_get_pre',
++	// Translation begin
++	'gettext',
++	'gettext_with_context',
++	'ngettext',
++	'ngettext_with_context',
++	'locale',
++	// Translation end
++	'plugins_url',
++	'option_stylesheet',
++	'set_url_scheme',
++	'block_type_metadata',
++	'block_type_metadata_settings',
++	'safe_style_css',
++	'safecss_filter_attr_allow_css',
++	'register_block_type_args',
++	'determine_locale',
++	'site_url',
++	'wpcom_is_vip',
++	'sanitize_title',
++	'default_post_metadata',
++	'render_block',
++	'pre_render_block',
++	'render_block_data',
++];
++$GLOBALS['measure_count'] = 0;
 +
  /**
   * Core class used to implement action and filter hook functionality.
   *
-@@ -42,6 +45,8 @@ final class WP_Hook implements Iterator, ArrayAccess {
+@@ -42,6 +73,8 @@ final class WP_Hook implements Iterator, ArrayAccess {
  	 */
  	private $current_priority = array();
  
@@ -21,7 +49,7 @@ index 4796503dcc..4693745a90 100644
  	/**
  	 * Number of levels this hook can be recursively called.
  	 *
-@@ -72,6 +77,7 @@ final class WP_Hook implements Iterator, ArrayAccess {
+@@ -72,6 +105,7 @@ final class WP_Hook implements Iterator, ArrayAccess {
  	 * @param int      $accepted_args The number of arguments the function accepts.
  	 */
  	public function add_filter( $hook_name, $callback, $priority, $accepted_args ) {
@@ -29,30 +57,34 @@ index 4796503dcc..4693745a90 100644
  		$idx = _wp_filter_build_unique_id( $hook_name, $callback, $priority );
  
  		$priority_existed = isset( $this->callbacks[ $priority ] );
-@@ -301,6 +307,10 @@ final class WP_Hook implements Iterator, ArrayAccess {
+@@ -292,6 +326,14 @@ final class WP_Hook implements Iterator, ArrayAccess {
+ 		$this->iterations[ $nesting_level ] = array_keys( $this->callbacks );
+ 		$num_args                           = count( $args );
+ 
++		$measure_hook = true;
++		if ( in_array( $this->hook_name, $GLOBALS['no_measure_hooks'] ) ) {
++			$measure_hook = false;
++		}
++		// Other possible ideas:
++		// Only measure an impactful hook:
++		// $measure_hook = $this->hook_name === 'init';
++
+ 		do {
+ 			$this->current_priority[ $nesting_level ] = current( $this->iterations[ $nesting_level ] );
+ 			$priority                                 = $this->current_priority[ $nesting_level ];
+@@ -301,6 +343,45 @@ final class WP_Hook implements Iterator, ArrayAccess {
  					$args[0] = $value;
  				}
  
-+				if ( true ) {
-+					$start = microtime( true );
-+				}
-+
- 				// Avoid the array_slice() if possible.
- 				if ( 0 == $the_['accepted_args'] ) {
- 					$value = call_user_func( $the_['function'] );
-@@ -309,6 +319,63 @@ final class WP_Hook implements Iterator, ArrayAccess {
- 				} else {
- 					$value = call_user_func_array( $the_['function'], array_slice( $args, 0, (int) $the_['accepted_args'] ) );
- 				}
-+
-+				if ( true ) {
-+					$end = microtime( true );
-+					$elap = ( $end - $start ) * 1000;
-+
++				$measure_func = true;
++				if ( $measure_hook ) {
 +					// Figure out name of the hooked function that ran
 +					$f = '';
 +					if ( is_string( $the_['function'] ) ) {
 +						$f = $the_['function'];
++						if ( $f === '__return_true' ) {
++							$measure_func = false;
++						}
 +					} elseif ( is_array( $the_['function'] ) ) {
 +						$parts = [];
 +						foreach ( $the_['function'] as $part ) {
@@ -76,6 +108,25 @@ index 4796503dcc..4693745a90 100644
 +					// Keep global tally of each hooked function
 +					$sf = trim(preg_replace('/[^A-Za-z0-9-> _\\\\\/\.]+/', '-', $f));
 +					$sf = $this->hook_name . ' => ' . $sf;
++				}
++
++				if ( $measure_hook && $measure_func ) {
++					$GLOBALS['measure_count'] += 1;
++					$start = microtime( true );
++				}
++
+ 				// Avoid the array_slice() if possible.
+ 				if ( 0 == $the_['accepted_args'] ) {
+ 					$value = call_user_func( $the_['function'] );
+@@ -309,6 +390,39 @@ final class WP_Hook implements Iterator, ArrayAccess {
+ 				} else {
+ 					$value = call_user_func_array( $the_['function'], array_slice( $args, 0, (int) $the_['accepted_args'] ) );
+ 				}
++
++				if ( $measure_hook && $measure_func ) {
++					$end = microtime( true );
++					$elap = ( $end - $start ) * 1000;
++
 +					if ( ! empty( $GLOBALS['sandbox_hook_count'][$sf] ) ) {
 +						$GLOBALS['sandbox_hook_count'][$sf] += 1;
 +					} else {
@@ -88,7 +139,10 @@ index 4796503dcc..4693745a90 100644
 +					}
 +
 +					// Log, sometimes
-+					if ( $elap > 50 && empty( $GLOBALS['sandbox_req_hook_logging_suppressed'] ) ) {
++					$do_log = $elap > 25 && empty( $GLOBALS['sandbox_req_hook_logging_suppressed'] );
++					// Idea: Always log a specific hook
++					// if ( $this->hook_name === 'init' ) { $do_log = true; }
++					if ( $do_log ) {
 +						$elap = round( $elap );
 +						if ( function_exists( 'sandbox_error_log' ) ) {
 +							sandbox_error_log( "    hook: {$elap}ms | {$this->hook_name} -> $f()" );
