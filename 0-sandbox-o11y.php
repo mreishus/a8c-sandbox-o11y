@@ -132,7 +132,7 @@ function sel( $message ) {
 $GLOBALS['sandbox_start_time']     = microtime( true );
 $GLOBALS['sandbox_last_selt_time'] = $GLOBALS['sandbox_start_time'];
 $GLOBALS['sandbox_selt_num']       = 0;
-function selt( $message ) {
+function selt( $message, $do_log = true ) {
 	if ( empty( $message ) ) {
 		$message = 'Mark ' . $GLOBALS['sandbox_selt_num'] . ':';
 		$GLOBALS['sandbox_selt_num'] += 1;
@@ -142,7 +142,9 @@ function selt( $message ) {
 	$elap       = round( ( $now - $GLOBALS['sandbox_last_selt_time'] ) * 1000, 2 );
 	$elap_begin = round( ( $now - $GLOBALS['sandbox_start_time'] ) * 1000, 2 );
 
-	sel("$message | $elap | $elap_begin");
+	if ( $do_log ) {
+		ll("$message | $elap | $elap_begin");
+	}
 
 	$GLOBALS['sandbox_last_selt_time'] = microtime( true );
 }
