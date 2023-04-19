@@ -33,7 +33,7 @@
  *
  * ------ Version and Changelog ------
  *
- * Version: 0.3.0 released 2023-03-22
+ * Version: 0.4.0 released 2023-04-19
  *
  * Changelog: 0.1.1: Filtered out 99% of requests to notifications endpoint, hardcoded.
  * Changelog: 0.1.2: Added hooked_function_summary. Made notifications suppression configurable. Requires new hook patch.
@@ -44,6 +44,12 @@
  *    [active-promo e4a5]   f public.api/rest/wpcom-json-endpoints/class.wpcom-json-api-me-active-promotions-endpoint.php
  *    After the "<--" (End request) line, an "  f" (File) line is added, showing which file served the request.
  * Changelog: 0.3.0: Added selt("Message 1") for timings. Do some stuff, then selt("Message 2"), and automatically see the time elasped between the last two selt() messages.
+ * Changelog: 0.4.0:
+ *    - Removed WPCOM_Bench_Filters: It's not reliable as it creates too many distortions.
+ *    - Reworked hook.diff (class-wp-hook.php) to introduce "banned hooks" which aren't measured:
+ *      this is a breakthrough in measurement accuracy. Just make sure to do both steps:
+ *      - sandbox_log_request( 2 ); in 0-sandbox.php
+ *      - Manually patch class-wp-hook.php in wp-includes/ with hook.diff.
  *
  */
 
