@@ -11,7 +11,7 @@ Edit `~/public_html/wp-content/mu-plugins/0-sandbox.php` and add a `sandbox_log_
 ```
 cp hook.diff /tmp/
 cd ~/public_html
-patch -p1 < ~/debug-perf/hook.diff
+patch -p1 < /tmp/hook.diff
 ```
 
 Be careful not to commit changes to `wp-includes/class-wp-hook.php`! You can
