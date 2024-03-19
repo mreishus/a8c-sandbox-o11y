@@ -311,7 +311,7 @@ function sandbox_log_request( $level = 1 ) {
 	$start = microtime( true );
 	if ( $c['end_request'] ) {
 		register_shutdown_function(
-			function() use ( $start, $actions_and_filters_bench, $c ) {
+			function() use ( $start, $c ) {
 				global $wpdb, $wp_object_cache;
 
 				$end     = microtime( true );
